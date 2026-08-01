@@ -3,6 +3,8 @@ import html
 import os
 import re
 import tempfile
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
@@ -16,6 +18,24 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+
+# ==========================================
+# ផ្នែក Dummy Web Server សម្រាប់ Render (Free Web Service)
+# ==========================================
+class DummyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b"Bot is running successfully on Render!")
+
+def run_dummy_server():
+    # Render នឹងផ្ដល់ PORT ឲ្យដោយស្វ័យប្រវត្តិ
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), DummyHandler)
+    server.serve_forever()
+# ==========================================
+
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 
@@ -188,11 +208,7 @@ def resolve_url(url: str) -> str:
 
 def build_ydl_opts(output_dir: str, url: str, format_string: str) -> dict:
     opts = {
-        # Include id/autonumber so multiple media from the same post do not overwrite each other.
         "outtmpl": str(Path(output_dir) / "%(title).100s-%(id)s-%(autonumber)03d.%(ext)s"),
-        # X/Twitter posts can contain multiple media items. If noplaylist=True,
-        # yt-dlp may only process one entry from that post. Keep noplaylist for
-        # other sites, but allow multiple entries for X/Twitter.
         "noplaylist": not is_x_url(url),
         "quiet": True,
         "no_warnings": True,
@@ -217,7 +233,6 @@ def collect_downloaded_media_files(output_dir: str) -> list[str]:
     if not files:
         raise RuntimeError("No file downloaded")
 
-    # Keep a predictable order. yt-dlp names grouped media with autonumber.
     files = sorted(files, key=lambda p: (p.name, p.stat().st_size))
     return [str(p) for p in files]
 
@@ -533,7 +548,6 @@ async def send_media(update: Update, file_paths: list[str], info: dict) -> None:
 
     caption = (info.get("title") or "Downloaded media")[:1024]
 
-    # Telegram albums support up to 10 photos/videos. Use this for X/Twitter media groups.
     album_paths = [
         p for p in file_paths[:10]
         if Path(p).suffix.lower() in (IMAGE_EXTS | VIDEO_EXTS)
@@ -675,6 +689,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 def main() -> None:
     if not BOT_TOKEN:
         raise RuntimeError("សូមកំណត់ BOT_TOKEN ជា environment variable")
+
+    # បញ្ជាឲ្យ Dummy Web Server ដំណើរការនៅពីក្រោយ
+    threading.Thread(target=run_dummy_server, daemon=True).start()
 
     builder = Application.builder().token(BOT_TOKEN)
 
