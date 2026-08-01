@@ -1,3 +1,4 @@
+
 import asyncio
 import html
 import os
@@ -17,9 +18,10 @@ from telegram.ext import (
     filters,
 )
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+# ខ្ញុំបានដាក់ Token របស់អ្នកជា Default នៅទីនេះ
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8749240113:AAHHnSClHpbMNpIT7pY-BGw-vYg8WpRfqeM").strip()
 
-USE_LOCAL_BOT_API = os.getenv("USE_LOCAL_BOT_API", "true").strip().lower() in {
+USE_LOCAL_BOT_API = os.getenv("USE_LOCAL_BOT_API", "false").strip().lower() in {
     "1", "true", "yes", "on"
 }
 LOCAL_BOT_API_BASE = os.getenv("LOCAL_BOT_API_BASE", "http://127.0.0.1:8081/bot").strip()
@@ -38,7 +40,6 @@ USER_AGENT = (
     "Chrome/124.0.0.0 Safari/537.36"
 )
 
-
 def env_first(*names: str) -> str:
     for name in names:
         value = os.getenv(name, "").strip()
@@ -46,36 +47,30 @@ def env_first(*names: str) -> str:
             return value
     return ""
 
-
 def first_existing_path(*candidates: str) -> str:
     for candidate in candidates:
         if candidate and Path(candidate).is_file():
             return str(Path(candidate))
     return ""
 
-
 COOKIE_FB = env_first("COOKIE_FB", "cookie_fb")
 COOKIE_X = env_first("COOKIE_X", "cookie_x")
 COOKIE_TT = env_first("COOKIE_TT", "cookie_tt")
 COOKIE_YT = env_first("COOKIE_YT", "cookie_yt")
 
-
 def extract_url(text: str) -> str | None:
     match = URL_RE.search(text or "")
     return match.group(0) if match else None
 
-
 def is_x_url(url: str) -> bool:
     host = urlparse(url).netloc.lower()
     return any(x in host for x in ("x.com", "twitter.com"))
-
 
 def valid_cookie_path(path: str) -> str | None:
     if not path:
         return None
     p = Path(path)
     return str(p) if p.is_file() else None
-
 
 def get_cookie_file(url: str) -> str | None:
     host = urlparse(url).netloc.lower()
@@ -102,7 +97,6 @@ def get_cookie_file(url: str) -> str | None:
 
     return None
 
-
 def build_browser_headers(url: str) -> dict:
     host = urlparse(url).netloc.lower()
     referer = "https://www.google.com/"
@@ -121,7 +115,6 @@ def build_browser_headers(url: str) -> dict:
         "Accept-Language": "en-US,en;q=0.9",
         "Referer": referer,
     }
-
 
 def read_netscape_cookies(cookie_file: str | None) -> list[dict]:
     if not cookie_file or not Path(cookie_file).is_file():
@@ -151,7 +144,6 @@ def read_netscape_cookies(cookie_file: str | None) -> list[dict]:
 
     return cookies
 
-
 def session_with_cookies(url: str) -> requests.Session:
     session = requests.Session()
     session.headers.update(build_browser_headers(url))
@@ -169,7 +161,6 @@ def session_with_cookies(url: str) -> requests.Session:
 
     return session
 
-
 def resolve_url(url: str) -> str:
     host = urlparse(url).netloc.lower()
     if not any(x in host for x in ("facebook.com", "fb.watch", "x.com", "twitter.com")):
@@ -185,14 +176,9 @@ def resolve_url(url: str) -> str:
 
     return url
 
-
 def build_ydl_opts(output_dir: str, url: str, format_string: str) -> dict:
     opts = {
-        # Include id/autonumber so multiple media from the same post do not overwrite each other.
         "outtmpl": str(Path(output_dir) / "%(title).100s-%(id)s-%(autonumber)03d.%(ext)s"),
-        # X/Twitter posts can contain multiple media items. If noplaylist=True,
-        # yt-dlp may only process one entry from that post. Keep noplaylist for
-        # other sites, but allow multiple entries for X/Twitter.
         "noplaylist": not is_x_url(url),
         "quiet": True,
         "no_warnings": True,
@@ -208,7 +194,6 @@ def build_ydl_opts(output_dir: str, url: str, format_string: str) -> dict:
 
     return opts
 
-
 def collect_downloaded_media_files(output_dir: str) -> list[str]:
     files = [
         p for p in Path(output_dir).glob("*")
@@ -217,10 +202,8 @@ def collect_downloaded_media_files(output_dir: str) -> list[str]:
     if not files:
         raise RuntimeError("No file downloaded")
 
-    # Keep a predictable order. yt-dlp names grouped media with autonumber.
     files = sorted(files, key=lambda p: (p.name, p.stat().st_size))
     return [str(p) for p in files]
-
 
 def try_ytdlp_download(url: str, output_dir: str) -> tuple[list[str], dict]:
     final_url = resolve_url(url)
@@ -254,13 +237,11 @@ def try_ytdlp_download(url: str, output_dir: str) -> tuple[list[str], dict]:
 
     raise last_error
 
-
 def normalize_escaped_url(value: str) -> str:
     value = html.unescape(value)
     value = bytes(value, "utf-8").decode("unicode_escape")
     value = value.replace("\\/", "/")
     return value
-
 
 def collect_facebook_video_candidates(html_text: str) -> list[str]:
     patterns = [
@@ -292,7 +273,6 @@ def collect_facebook_video_candidates(html_text: str) -> list[str]:
                 found.append(url)
 
     return found
-
 
 def collect_image_candidates(html_text: str, page_url: str) -> list[str]:
     patterns = [
@@ -345,7 +325,6 @@ def collect_image_candidates(html_text: str, page_url: str) -> list[str]:
 
     return found
 
-
 def score_facebook_video_url(url: str) -> tuple[int, int, int, int]:
     lower = url.lower()
     hd_score = 1 if "hd" in lower or "quality_hd" in lower else 0
@@ -353,7 +332,6 @@ def score_facebook_video_url(url: str) -> tuple[int, int, int, int]:
     fb_video_score = 1 if "video" in lower or "fbcdn" in lower else 0
     len_score = len(url)
     return (hd_score, mp4_score, fb_video_score, len_score)
-
 
 def score_image_url(url: str) -> tuple[int, int, int, int, int]:
     lower = url.lower()
@@ -364,14 +342,12 @@ def score_image_url(url: str) -> tuple[int, int, int, int, int]:
     len_score = len(url)
     return (ext_score, cdn_score, content_score, bad_score, len_score)
 
-
 def fetch_page_html(url: str) -> tuple[str, str]:
     final_url = resolve_url(url)
     session = session_with_cookies(final_url)
     response = session.get(final_url, timeout=20)
     response.raise_for_status()
     return response.text, final_url
-
 
 def extract_direct_video_from_facebook(url: str) -> str | None:
     html_text, final_url = fetch_page_html(url)
@@ -380,13 +356,7 @@ def extract_direct_video_from_facebook(url: str) -> str | None:
         return None
 
     candidates.sort(key=score_facebook_video_url, reverse=True)
-
-    print(f"[fb-fallback] resolved={final_url}")
-    for i, candidate in enumerate(candidates[:5], start=1):
-        print(f"[fb-fallback] candidate{i}={candidate[:200]}")
-
     return candidates[0]
-
 
 def extract_direct_images_from_page(url: str, limit: int = 3) -> list[str]:
     html_text, final_url = fetch_page_html(url)
@@ -395,13 +365,7 @@ def extract_direct_images_from_page(url: str, limit: int = 3) -> list[str]:
         return []
 
     candidates.sort(key=score_image_url, reverse=True)
-
-    print(f"[img-fallback] resolved={final_url}")
-    for i, candidate in enumerate(candidates[:limit], start=1):
-        print(f"[img-fallback] candidate{i}={candidate[:200]}")
-
     return candidates[:limit]
-
 
 def guess_extension_from_url(url: str, content_type: str = "") -> str:
     path = urlparse(url).path.lower()
@@ -422,7 +386,6 @@ def guess_extension_from_url(url: str, content_type: str = "") -> str:
 
     return ".mp4"
 
-
 def download_direct_file(media_url: str, output_dir: str, source_url: str, base_name: str = "media") -> tuple[str, dict]:
     session = session_with_cookies(source_url)
 
@@ -441,7 +404,6 @@ def download_direct_file(media_url: str, output_dir: str, source_url: str, base_
     info = {"title": title}
     return str(file_path), info
 
-
 def download_direct_images(image_urls: list[str], output_dir: str, source_url: str) -> tuple[list[str], dict]:
     files: list[str] = []
 
@@ -451,7 +413,6 @@ def download_direct_images(image_urls: list[str], output_dir: str, source_url: s
 
     return files, {"title": "Downloaded image"}
 
-
 def facebook_video_only_fallback(url: str, output_dir: str) -> tuple[list[str], dict]:
     media_url = extract_direct_video_from_facebook(url)
     if not media_url:
@@ -459,18 +420,15 @@ def facebook_video_only_fallback(url: str, output_dir: str) -> tuple[list[str], 
     file_path, info = download_direct_file(media_url, output_dir, url, base_name="facebook_video_fallback")
     return [file_path], info
 
-
 def page_image_fallback(url: str, output_dir: str) -> tuple[list[str], dict]:
     image_urls = extract_direct_images_from_page(url, limit=3)
     if not image_urls:
         raise RuntimeError("Image fallback URL not found")
     return download_direct_images(image_urls, output_dir, url)
 
-
 def direct_image_url_fallback(url: str, output_dir: str) -> tuple[list[str], dict]:
     file_path, info = download_direct_file(url, output_dir, url, base_name="direct_image")
     return [file_path], info
-
 
 def download_media(url: str, output_dir: str) -> tuple[list[str], dict]:
     lower_url = url.lower()
@@ -509,13 +467,11 @@ def download_media(url: str, output_dir: str) -> tuple[list[str], dict]:
 
         raise exc
 
-
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "ផ្ញើ link មកបាន\n"
         "Support: Facebook, X/Twitter, TikTok, YouTube\n"
     )
-
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
@@ -526,14 +482,11 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "4) បើ video មិនចេញ វានឹងសាក fallback រក image/video ដោយប្រើ cookie"
     )
 
-
 async def send_media(update: Update, file_paths: list[str], info: dict) -> None:
     if not file_paths:
         raise RuntimeError("No media file to send")
 
     caption = (info.get("title") or "Downloaded media")[:1024]
-
-    # Telegram albums support up to 10 photos/videos. Use this for X/Twitter media groups.
     album_paths = [
         p for p in file_paths[:10]
         if Path(p).suffix.lower() in (IMAGE_EXTS | VIDEO_EXTS)
@@ -628,49 +581,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         err = str(e).lower()
 
         if "failed to decrypt with dpapi" in err:
-            await status.edit_text(
-                "cookie មិនអាចប្រើបាន។ សូមប្រើ Netscape cookies txt file ត្រឹមត្រូវ។"
-            )
+            await status.edit_text("cookie មិនអាចប្រើបាន។ សូមប្រើ Netscape cookies txt file ត្រឹមត្រូវ។")
             return
-
-        if (
-            "registered users" in err
-            or "authentication" in err
-            or "login" in err
-            or "private" in err
-            or "sign in" in err
-        ):
-            await status.edit_text(
-                "Link នេះត្រូវការ cookie ត្រឹមត្រូវ ឬអាចជា private content។"
-            )
+        if "registered users" in err or "authentication" in err or "login" in err or "private" in err or "sign in" in err:
+            await status.edit_text("Link នេះត្រូវការ cookie ត្រឹមត្រូវ ឬអាចជា private content។")
             return
-
         if "image fallback url not found" in err:
-            await status.edit_text(
-                "រក image មិនឃើញពី page នេះទេ។ អាចជា page type ពិបាក parse ឬ cookie មិនគ្រប់។"
-            )
+            await status.edit_text("រក image មិនឃើញពី page នេះទេ។")
             return
-
         if "facebook fallback video url not found" in err:
-            await status.edit_text(
-                "Facebook post នេះរក media ពិតមិនឃើញទេ។ post ប្រភេទ shared cards ខ្លះនៅតែពិបាក។"
-            )
+            await status.edit_text("Facebook post នេះរក media ពិតមិនឃើញទេ។")
             return
-
         if "cannot parse data" in err and "facebook" in err:
-            await status.edit_text(
-                "Facebook parse មិនចេញ។ សាកប្តូរ cookie ថ្មី ឬផ្ញើ link post/reel/watch ពិត។"
-            )
+            await status.edit_text("Facebook parse មិនចេញ។ សាកប្តូរ cookie ថ្មី។")
             return
-
         if "no video could be found" in err:
-            await status.edit_text(
-                "Post នេះអាចមិនមានវីដេអូ ហើយ bot ក៏រក image មិនឃើញដែរ។"
-            )
+            await status.edit_text("Post នេះអាចមិនមានវីដេអូ ហើយ bot ក៏រក image មិនឃើញដែរ។")
             return
 
         await status.edit_text(f"Error: {e}")
-
 
 def main() -> None:
     if not BOT_TOKEN:
@@ -687,9 +616,20 @@ def main() -> None:
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("Bot is running...")
-    app.run_polling(close_loop=False)
+    # កន្លែងនេះបានកំណត់ Webhook របស់អ្នករួចជាស្រេច
+    WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://telegram-iyns.onrender.com").strip()
+    PORT = int(os.getenv("PORT", "8443")) # Render នឹងផ្តល់ PORT នេះដោយស្វ័យប្រវត្តិ
 
+    if WEBHOOK_URL:
+        print(f"Bot is running with Webhook on port {PORT}...")
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            webhook_url=WEBHOOK_URL
+        )
+    else:
+        print("Bot is running with Polling...")
+        app.run_polling(close_loop=False)
 
 if __name__ == "__main__":
     main()
